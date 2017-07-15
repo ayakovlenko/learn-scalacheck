@@ -1,35 +1,41 @@
 import com.google.common.base.{CaseFormat, Converter}
-import org.scalacheck.Gen
 import org.scalacheck.Gen._
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{MustMatchers, PropSpec}
+import org.scalacheck.Prop.{AnyOperators, _}
+import org.scalacheck.{Gen, Properties}
 
 class CaseFormatProperties
-  extends PropSpec
-    with PropertyChecks
-    with MustMatchers {
+  extends Properties("CaseFormatter") {
 
-  val capitalizedStringGen: Gen[String] = for {
+  val genCapitalizedString: Gen[String] = for {
     n <- choose(0, 10)
     upper <- alphaUpperChar
     lowers <- listOfN(n, alphaLowerChar)
   } yield (upper :: lowers) mkString ""
 
-  val upperCamelCaseStringGen: Int => Gen[String] = n => for {
-    strings <- listOfN(n, capitalizedStringGen)
+  val genUpperCamelCaseString: Int => Gen[String] = n => for {
+    strings <- listOfN(n, genCapitalizedString)
   } yield strings mkString ""
 
-  val caseConverter: Converter[String, String] = {
+  val camelToHyphen: Converter[String, String] = {
     CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_HYPHEN)
   }
 
-  property("contains (n - 1) dashes") {
-    forAll(posNum[Int]) { n =>
-      forAll(upperCamelCaseStringGen(n)) { x =>
-        val y = caseConverter.convert(x)
+  val hyphenToCamel: Converter[String, String] = {
+    CaseFormat.LOWER_HYPHEN.converterTo(CaseFormat.UPPER_CAMEL)
+  }
 
-        y.count(_ == '-') mustBe n - 1
-      }
+  property("a bunch of CaseFormatter properties") = forAll(posNum[Int]) { n =>
+    forAll(genUpperCamelCaseString(n) :| "word") { x =>
+      val y = camelToHyphen.convert(x)
+
+      all(
+        "number of hyphens" |: {
+          y.count(_ == '-') ?= n - 1
+        },
+        "round-trip" |: {
+          hyphenToCamel.convert(y) ?= x
+        }
+      )
     }
   }
 }
