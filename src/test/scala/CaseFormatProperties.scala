@@ -1,13 +1,13 @@
-import com.google.common.base.CaseFormat
+import com.google.common.base.{CaseFormat, Converter}
+import org.scalacheck.Gen
 import org.scalacheck.Gen._
-import org.scalatest.PropSpec
-import org.scalacheck.{Gen, Prop}
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
+import org.scalatest.prop.PropertyChecks
+import org.scalatest.{MustMatchers, PropSpec}
 
 class CaseFormatProperties
   extends PropSpec
-  with Checkers
-  with GeneratorDrivenPropertyChecks {
+    with PropertyChecks
+    with MustMatchers {
 
   val capitalizedStringGen: Gen[String] = for {
     n <- choose(0, 10)
@@ -19,14 +19,16 @@ class CaseFormatProperties
     strings <- listOfN(n, capitalizedStringGen)
   } yield strings mkString ""
 
-  check {
-    val caseConverter = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_HYPHEN)
+  val caseConverter: Converter[String, String] = {
+    CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_HYPHEN)
+  }
 
-    Prop.forAll(posNum[Int]) { n =>
-      Prop.forAll(upperCamelCaseStringGen(n)) { x =>
+  property("contains (n - 1) dashes") {
+    forAll(posNum[Int]) { n =>
+      forAll(upperCamelCaseStringGen(n)) { x =>
         val y = caseConverter.convert(x)
 
-        y.count(_ == '-') === n - 1
+        y.count(_ == '-') mustBe n - 1
       }
     }
   }
